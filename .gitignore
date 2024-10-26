@@ -6,8 +6,8 @@ __pycache__/
 
 # Ignore environment files
 .env
-praw.ini
 src/db_config.py
+src/reddit_config.py
 
 # Ignore data files
 data/

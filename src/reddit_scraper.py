@@ -4,9 +4,14 @@ from psycopg2.extras import execute_values
 import datetime
 import time
 import db_config
+import reddit_config  # Import credentials from reddit_config.py
 
-# Reddit API Configuration using praw.ini
-reddit = praw.Reddit()
+# Initialize Reddit using imported credentials
+reddit = praw.Reddit(
+    client_id=reddit_config.client_id,
+    client_secret=reddit_config.client_secret,
+    user_agent=reddit_config.user_agent
+)
 
 # List of subreddits to scrape
 subreddits = ["news", "worldnews", "politics", "technology", "conspiracy", "inthenews"]
