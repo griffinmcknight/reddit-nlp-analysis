@@ -6,6 +6,8 @@ __pycache__/
 
 # Ignore environment files
 .env
+nohup.out
+notebooks/db_config.py
 src/db_config.py
 src/reddit_config.py
 
