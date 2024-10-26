@@ -1,0 +1,13 @@
+# .gitignore
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env
+praw.ini
+
+# Ignore data files
+data/
+
