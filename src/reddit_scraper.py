@@ -14,7 +14,7 @@ reddit = praw.Reddit(
 )
 
 # List of subreddits to scrape
-subreddits = ["news", "worldnews", "politics", "technology", "conspiracy", "inthenews"]
+subreddits = ["conservative", "democrats", "news", "worldnews", "politics", "technology", "conspiracy", "inthenews"]
 
 # PostgreSQL Database Configuration from db_config.py
 conn = psycopg2.connect(**db_config.db_params)
