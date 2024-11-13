@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-import datetime
+from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 # Adjust `PYTHONPATH` to include `src` for local imports
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from config import db_config
+from config.db_config import db_params
+from config.color_palette import COLOR_PALETTE  # Import the centralized color palette
 
 # Set up database connection
 def get_engine():
@@ -37,127 +38,186 @@ def load_data(engine, start_date, end_date):
 
     # Combine title and self_text for posts into a single content column
     posts['content'] = posts['title'].fillna('') + " " + posts['self_text'].fillna('')
-    posts = posts[['post_id', 'created_utc', 'subreddit', 'content']]  # Keep necessary columns
+    posts = posts[['post_id', 'created_utc', 'subreddit', 'content']]
 
-    # Rename comment body to content for consistency and keep subreddit
+    # Rename comment body to content for consistency
     comments = comments.rename(columns={'body': 'content'})
     comments = comments[['post_id', 'created_utc', 'subreddit', 'content']]
 
-    # Concatenate posts and comments into a single DataFrame
-    data = pd.concat([posts, comments], ignore_index=True)
+    posts['created_utc'] = pd.to_datetime(posts['created_utc'])
+    comments['created_utc'] = pd.to_datetime(comments['created_utc'])
 
-    return data
+    return posts, comments
 
 # Initialize VADER sentiment analyzer
 sentiment_analyzer = SentimentIntensityAnalyzer()
 
-# Stacked bar plot for engagement by day and subreddit
-def plot_engagement_by_day(data, subreddits_selected):
-    # Filter data by selected subreddits
+# Function to calculate the average sentiment for posts based on all comments in a given time slot
+def calculate_avg_sentiment_for_post_in_time_slot(time_slot, interval, posts_data, comments_data):
+    try:
+        end_time = time_slot + pd.to_timedelta(interval)
+    except ValueError:
+        from dateutil.relativedelta import relativedelta
+        end_time = time_slot + relativedelta(months=int(interval[:-1])) if interval.endswith('M') else time_slot + pd.to_timedelta('1D')
+
+    posts_in_time_slot = posts_data[(posts_data.index >= time_slot) & (posts_data.index < end_time)]['post_id'].unique()
+    comments_in_time_slot = comments_data[comments_data['post_id'].isin(posts_in_time_slot)]
+
+    sentiments = [sentiment_analyzer.polarity_scores(text)['compound'] for text in comments_in_time_slot['content']]
+    avg_sentiment = sum(sentiments) / len(sentiments) if sentiments else 0
+    return avg_sentiment
+
+# Function to calculate the average sentiment for comments in a given time slot
+def calculate_avg_sentiment_for_time_slot(time_slot, interval, comments_data):
+    try:
+        end_time = time_slot + pd.to_timedelta(interval)
+    except ValueError:
+        from dateutil.relativedelta import relativedelta
+        end_time = time_slot + relativedelta(months=int(interval[:-1])) if interval.endswith('M') else time_slot + pd.to_timedelta('1D')
+
+    comments_in_time_slot = comments_data[(comments_data.index >= time_slot) & (comments_data.index < end_time)]
+    sentiments = [sentiment_analyzer.polarity_scores(text)['compound'] for text in comments_in_time_slot['content']]
+    avg_sentiment = sum(sentiments) / len(sentiments) if sentiments else 0
+    return avg_sentiment
+
+# Plot posts per time slot using selected interval
+def plot_posts_per_time_slot(posts_data, comments_data, subreddits_selected, interval, sentiment_analysis_active):
     if subreddits_selected:
-        data = data[data['subreddit'].isin(subreddits_selected)]
+        posts_filtered = posts_data[posts_data['subreddit'].isin(subreddits_selected)]
+        comments_filtered = comments_data[comments_data['subreddit'].isin(subreddits_selected)]
+    else:
+        posts_filtered = posts_data.copy()
+        comments_filtered = comments_data.copy()
 
-    # Resample to daily counts per subreddit
-    data['created_utc'] = pd.to_datetime(data['created_utc'])
-    data.set_index('created_utc', inplace=True)
-    daily_engagement = data.groupby([pd.Grouper(freq='D'), 'subreddit']).size().reset_index(name='engagement_count')
+    posts_filtered['created_utc'] = pd.to_datetime(posts_filtered['created_utc'])
+    posts_filtered.set_index('created_utc', inplace=True)
 
-    # Plot stacked bar chart
-    fig = px.bar(
-        daily_engagement,
-        x='created_utc',
-        y='engagement_count',
-        color='subreddit',
-        labels={"created_utc": "Date", "engagement_count": "Engagement Count"},
-        title="Daily Engagement by Subreddit"
+    if sentiment_analysis_active:
+        posts_per_time = posts_filtered.groupby(pd.Grouper(freq=interval)).size().reset_index(name='post_count')
+        posts_per_time['avg_sentiment'] = posts_per_time['created_utc'].apply(
+            lambda x: calculate_avg_sentiment_for_post_in_time_slot(x, interval, posts_filtered, comments_filtered)
+        )
+
+        fig = px.bar(
+            posts_per_time,
+            x='created_utc',
+            y='post_count',
+            color='avg_sentiment',
+            color_continuous_scale=COLOR_PALETTE["continuous"],  # Use full plasma colormap
+            labels={"created_utc": "Time Slot", "post_count": "Posts Count", "avg_sentiment": "Average Sentiment"},
+            title=f"Posts per Time Slot ({interval}) Colored by Average Sentiment"
+        )
+    else:
+        posts_per_time = posts_filtered.groupby([pd.Grouper(freq=interval), 'subreddit']).size().reset_index(name='post_count')
+        fig = px.bar(
+            posts_per_time,
+            x='created_utc',
+            y='post_count',
+            color='subreddit',
+            color_discrete_sequence=COLOR_PALETTE["categorical"],  # Use subreddit categorical colors
+            labels={"created_utc": "Time Slot", "post_count": "Posts Count", "subreddit": "Subreddit"},
+            title=f"Posts per Time Slot ({interval}) Colored by Subreddit"
+        )
+
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Post Count",
+        plot_bgcolor=COLOR_PALETTE["background"],
+        font=dict(color=COLOR_PALETTE["text"]),
+        xaxis=dict(color=COLOR_PALETTE["axes"]),
+        yaxis=dict(color=COLOR_PALETTE["axes"])
     )
-    fig.update_layout(xaxis_title="Date", yaxis_title="Engagement Count", barmode="stack")
     st.plotly_chart(fig)
 
-# Calculate sentiment and group by interval with progress bar
-def process_engagement_data(data, interval):
-    data['created_utc'] = pd.to_datetime(data['created_utc'])
-    data.set_index('created_utc', inplace=True)
+# Plot comments per time slot using selected interval
+def plot_comments_per_time_slot(comments_data, subreddits_selected, interval, sentiment_analysis_active):
+    if subreddits_selected:
+        comments_filtered = comments_data[comments_data['subreddit'].isin(subreddits_selected)]
+    else:
+        comments_filtered = comments_data.copy()
 
-    # Initial engagement data without sentiment
-    engagement_data = data.resample(interval).agg(
-        engagement=('content', 'count')  # Engagement is the count of posts + comments
-    ).dropna()  # Drop intervals with no engagement
+    comments_filtered['created_utc'] = pd.to_datetime(comments_filtered['created_utc'])
+    comments_filtered.set_index('created_utc', inplace=True)
 
-    engagement_data['avg_sentiment'] = 0  # Initialize with neutral sentiment
+    if sentiment_analysis_active:
+        comments_per_time = comments_filtered.groupby(pd.Grouper(freq=interval)).size().reset_index(name='comment_count')
+        comments_per_time['avg_sentiment'] = comments_per_time['created_utc'].apply(
+            lambda x: calculate_avg_sentiment_for_time_slot(x, interval, comments_filtered)
+        )
 
-    # Process sentiment scores for each time slot in batches
-    for index in tqdm(engagement_data.index, desc="Processing Sentiment by Interval"):
-        interval_data = data[(data.index >= index) & (data.index < index + pd.Timedelta(interval))]
+        fig = px.bar(
+            comments_per_time,
+            x='created_utc',
+            y='comment_count',
+            color='avg_sentiment',
+            color_continuous_scale=COLOR_PALETTE["continuous"],  # Use full plasma colormap
+            labels={"created_utc": "Time Slot", "comment_count": "Comment Count", "avg_sentiment": "Average Sentiment"},
+            title=f"Comments per Time Slot ({interval}) Colored by Average Sentiment"
+        )
+    else:
+        comments_per_time = comments_filtered.groupby([pd.Grouper(freq=interval), 'subreddit']).size().reset_index(name='comment_count')
+        fig = px.bar(
+            comments_per_time,
+            x='created_utc',
+            y='comment_count',
+            color='subreddit',
+            color_discrete_sequence=COLOR_PALETTE["categorical"],  # Use subreddit categorical colors
+            labels={"created_utc": "Time Slot", "comment_count": "Comment Count", "subreddit": "Subreddit"},
+            title=f"Comments per Time Slot ({interval}) Colored by Subreddit"
+        )
 
-        if not interval_data.empty:
-            sentiments = [sentiment_analyzer.polarity_scores(text)['compound'] for text in interval_data['content']]
-            avg_sentiment = sum(sentiments) / len(sentiments)
-        else:
-            avg_sentiment = 0  # Neutral sentiment if no data
-
-        engagement_data.at[index, 'avg_sentiment'] = avg_sentiment
-        update_plot(engagement_data)
-
-    return engagement_data
-
-# Update the engagement plot dynamically in Streamlit
-def update_plot(engagement_data):
-    fig = px.bar(
-        engagement_data,
-        x=engagement_data.index,
-        y="engagement",
-        color="avg_sentiment",
-        color_continuous_scale="RdYlGn",  # Red to green for negative to positive sentiment
-        labels={"engagement": "Engagement (Post + Comment Count)", "avg_sentiment": "Avg Sentiment"},
-        title="Dynamic Engagement and Sentiment Analysis"
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title="Comment Count",
+        plot_bgcolor=COLOR_PALETTE["background"],
+        font=dict(color=COLOR_PALETTE["text"]),
+        xaxis=dict(color=COLOR_PALETTE["axes"]),
+        yaxis=dict(color=COLOR_PALETTE["axes"])
     )
-    fig.update_layout(xaxis_title="Time", yaxis_title="Engagement Count")
-    placeholder.plotly_chart(fig)
+    st.plotly_chart(fig)
 
 # Streamlit dashboard setup
 def main():
+    st.set_page_config(layout="wide")
     st.title("Time-Series Engagement and Sentiment Analysis")
 
-    # Sidebar filters
     st.sidebar.header("Select Analysis Filters")
     start_date = st.sidebar.date_input("Start Date", datetime(2024, 10, 1))
     end_date = st.sidebar.date_input("End Date", datetime(2024, 11, 30))
 
-    # Database engine
     engine = get_engine()
 
-    # Load data within selected date range
-    data = load_data(engine, start_date, end_date)
+    posts_data, comments_data = load_data(engine, start_date, end_date)
 
-    # Fetch distinct subreddits for filtering options
-    all_subreddits = sorted(data['subreddit'].unique())
+    all_subreddits = sorted(posts_data['subreddit'].unique())
     subreddits_selected = st.sidebar.multiselect("Select Subreddits", options=all_subreddits, default=all_subreddits)
 
-    # Display stacked bar plot of engagement by day
-    st.subheader("Engagement by Day")
-    plot_engagement_by_day(data, subreddits_selected)
-
-    # Frequency interval options for sentiment analysis
     interval_map = {
-        '5 Min': ('5', 'min'), 
-        'Hour': ('1', 'H'), 
-        'Day': ('1', 'D'), 
-        'Week': ('1', 'W'), 
-        'Month': ('1', 'M')
+        '5 Min': '5min', 
+        'Hour': '1h',
+        'Day': '1D', 
+        'Week': '1W', 
+        'Month': '1M'
     }
     interval_choice = st.sidebar.selectbox("Select Frequency Interval", list(interval_map.keys()))
-    interval_value, interval_unit = interval_map[interval_choice]
-    interval = f"{interval_value}{interval_unit}"
+    interval = interval_map[interval_choice]
 
-    # Global placeholder for dynamic updates
-    global placeholder  
-    placeholder = st.empty()  # Create empty placeholder for sentiment plot
+    if 'sentiment_analysis_active' not in st.session_state:
+        st.session_state.sentiment_analysis_active = False
 
-    # Add a "Go" button to start sentiment analysis after filtering
     if st.sidebar.button("Begin Sentiment Analysis"):
-        # Process engagement data for sentiment analysis
-        engagement_data = process_engagement_data(data, interval)
+        st.session_state.sentiment_analysis_active = True
+
+    sentiment_analysis_active = st.session_state.sentiment_analysis_active
+
+    st.subheader("Posts and Comments per Time Slot")
+    plot_posts_per_time_slot(posts_data, comments_data, subreddits_selected, interval, sentiment_analysis_active)
+    plot_comments_per_time_slot(comments_data, subreddits_selected, interval, sentiment_analysis_active)
+
+    if sentiment_analysis_active:
+        if st.sidebar.button("Reset Sentiment Analysis"):
+            st.session_state.sentiment_analysis_active = False
 
 if __name__ == "__main__":
     main()
+
