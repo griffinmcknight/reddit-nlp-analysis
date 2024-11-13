@@ -1,12 +1,20 @@
+#!/usr/bin/env python3
+
+import sys
+from pathlib import Path
+import warnings
+
 import networkx as nx
+import numpy as np
 import pandas as pd
 from cdlib import algorithms
 from sqlalchemy import create_engine
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
-import db_config
-import warnings
-import numpy as np
+
+# Adjust `PYTHONPATH` to include `src` for local imports
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import db_config
 
 # Enhanced warning suppression for optional libraries and 'graph_tool'
 warnings.filterwarnings("ignore", category=UserWarning, message="to be able to use all crisp methods")

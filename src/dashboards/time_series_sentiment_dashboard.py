@@ -1,11 +1,19 @@
-import streamlit as st
+#!/usr/bin/env python3
+
+import sys
+from pathlib import Path
+import datetime
+
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 from sqlalchemy import create_engine
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from datetime import datetime
-from db_config import db_params
 from tqdm import tqdm
+
+# Adjust `PYTHONPATH` to include `src` for local imports
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import db_config
 
 # Set up database connection
 def get_engine():

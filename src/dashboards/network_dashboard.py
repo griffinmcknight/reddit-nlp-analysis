@@ -1,8 +1,11 @@
-import streamlit as st
+#!/usr/bin/env python3
+
+from pathlib import Path
+
 import pandas as pd
 import networkx as nx
 import plotly.graph_objects as go
-from pathlib import Path  # Cross-platform path handling
+import streamlit as st
 
 # Define file paths using Path for cross-platform compatibility
 nodes_file = Path('network_nodes.csv')

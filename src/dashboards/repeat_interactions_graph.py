@@ -1,11 +1,20 @@
-import streamlit as st
-import pandas as pd
+#!/usr/bin/env python3
+
+import sys
+from pathlib import Path
+import datetime
+from datetime import timedelta
+
 import networkx as nx
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from sqlalchemy import create_engine
-from db_config import db_params
 from tqdm import tqdm
-from datetime import datetime, timedelta
+
+# Adjust `PYTHONPATH` to include `src` for local imports
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import db_config
 
 # Set up database connection
 def get_engine():

@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 
+import datetime
+import json
+import sys
+import time
+from pathlib import Path
+
 import praw
 import psycopg2
 from psycopg2.extras import execute_values
-import datetime
-import time
-from config import db_config, reddit_config  # Import from src/config/
+
+# Adjust `PYTHONPATH` to include `src` for local imports
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import db_config, reddit_config
 
 # Initialize Reddit using credentials from reddit_config
 reddit = praw.Reddit(
@@ -14,8 +21,15 @@ reddit = praw.Reddit(
     user_agent=reddit_config.user_agent
 )
 
-# List of subreddits to scrape
-subreddits = ["politics", "democrats", "news", "worldnews", "technology", "conspiracy", "inthenews", "conservative"]
+# Load target subreddits from JSON file
+def load_target_subreddits():
+    # Use absolute path for loading the JSON file
+    target_subreddits_path = Path(__file__).resolve().parent.parent / "data" / "target_subreddits.json"
+    with open(target_subreddits_path, "r") as file:
+        data = json.load(file)
+    return data.get("subreddits", [])
+
+subreddits = load_target_subreddits()
 
 # PostgreSQL Database Configuration from db_config.py
 conn = psycopg2.connect(**db_config.db_params)
