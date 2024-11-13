@@ -29,18 +29,11 @@ reddit-nlp-analysis/
 ├── environment.yaml
 └── src
     ├── __init__.py
-    ├── __pycache__
-    │   └── db_config.cpython-39.pyc
     ├── config
     │   ├── __init__.py
-    │   ├── __pycache__
-    │   │   ├── __init__.cpython-39.pyc
-    │   │   ├── color_palette.cpython-39.pyc
-    │   │   ├── db_config.cpython-39.pyc
-    │   │   └── reddit_config.cpython-39.pyc
-    │   ├── color_palette.py
-    │   ├── db_config.py
-    │   └── reddit_config.py
+    │   ├── color_palette.example.py
+    │   ├── db_config.example.py
+    │   ├── reddit_config.example.py
     ├── dashboards
     │   ├── __init__.py
     │   ├── flag_user_dashboard.py
@@ -49,6 +42,10 @@ reddit-nlp-analysis/
     │   ├── time_series_sentiment_dashboard.py
     │   ├── user_clustering_and_community_detection.py
     │   └── user_overlap_analysis.py
+    ├── data
+    │   ├── __init__.py
+    │   ├── flagged_users.example.json
+    │   ├── target_subreddits.example.json
     └── scrapers
         ├── __init__.py
         ├── fetch_flagged_user_data.py
