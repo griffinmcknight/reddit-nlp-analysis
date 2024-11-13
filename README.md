@@ -23,9 +23,39 @@ This project is an end-to-end data science pipeline focused on performing Natura
 ### Repository Structure
 ```plaintext
 reddit-nlp-analysis/
-├── notebooks/              # Jupyter notebooks for EDA and analysis
-├── src/                    # Python scripts for data collection and processing
-├── README.md               # Project overview and setup instructions
-├── .gitignore              # Files and directories to be ignored by Git
-└── requirements.txt        # List of Python dependencies
+├── README.md
+├── docs
+│   └── swarm_detection.md
+├── environment.yaml
+└── src
+    ├── __init__.py
+    ├── __pycache__
+    │   └── db_config.cpython-39.pyc
+    ├── config
+    │   ├── __init__.py
+    │   ├── __pycache__
+    │   │   ├── __init__.cpython-39.pyc
+    │   │   ├── color_palette.cpython-39.pyc
+    │   │   ├── db_config.cpython-39.pyc
+    │   │   └── reddit_config.cpython-39.pyc
+    │   ├── color_palette.py
+    │   ├── db_config.py
+    │   └── reddit_config.py
+    ├── dashboards
+    │   ├── __init__.py
+    │   ├── flag_user_dashboard.py
+    │   ├── post_engagement_analysis.py
+    │   ├── swarm_detection.py
+    │   ├── time_series_sentiment_dashboard.py
+    │   ├── user_clustering_and_community_detection.py
+    │   └── user_overlap_analysis.py
+    ├── data
+    │   ├── __init__.py
+    │   ├── flagged_users.json
+    │   ├── target_subreddits.json
+    │   └── unsupervised_post_clustering.csv
+    └── scrapers
+        ├── __init__.py
+        ├── fetch_flagged_user_data.py
+        └── fetch_subreddit_data.py
 
