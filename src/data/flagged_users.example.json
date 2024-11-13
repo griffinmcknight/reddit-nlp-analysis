@@ -1,0 +1,15 @@
+{
+    "manual": [
+        "username1",
+        "username2"
+    ],
+    "high_reciprocity": [
+        "username3"
+    ],
+    "medium_reciprocity": [
+        "username5"
+    ],
+    "low_reciprocity": [
+        "username4"
+    ]
+}

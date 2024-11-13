@@ -49,11 +49,6 @@ reddit-nlp-analysis/
     │   ├── time_series_sentiment_dashboard.py
     │   ├── user_clustering_and_community_detection.py
     │   └── user_overlap_analysis.py
-    ├── data
-    │   ├── __init__.py
-    │   ├── flagged_users.json
-    │   ├── target_subreddits.json
-    │   └── unsupervised_post_clustering.csv
     └── scrapers
         ├── __init__.py
         ├── fetch_flagged_user_data.py

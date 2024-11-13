@@ -9,8 +9,34 @@ __pycache__/
 **/.ipynb_checkpoints/
 nohup.out
 
-# Ignore configuration files and sensitive data
-src/config/
+# Ignore all files in src/config/ except *.example.*
+/src/config/*
+!/src/config/*.example.*
 
-# Exclude entire data directory if generated data should not be tracked
-data/
+# Ignore all files in src/data/ except *.example.*
+/src/data/*
+!/src/data/*.example.*
+
+# Ignore virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Ignore build and distribution directories
+build/
+dist/
+*.egg-info/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore other sensitive or unnecessary files
+secrets.yaml
