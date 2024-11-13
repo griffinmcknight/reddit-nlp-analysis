@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from sqlalchemy import create_engine
 import numpy as np
+import matplotlib.pyplot as plt  # Added import for matplotlib
 
 # Adjust `PYTHONPATH` to include `src` for local imports
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -16,6 +17,16 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 # Import configuration modules, including the color palette
 from config import db_config, reddit_config, color_palette  # Import color_palette
 COLOR_PALETTE = color_palette.COLOR_PALETTE  # Reference the color palette dictionary
+
+# Load the Plasma colormap from matplotlib
+plasma_cmap = plt.cm.plasma(np.linspace(0, 1, 256))  # Define 256 colors along the Plasma colormap
+
+# Utility function to convert RGBA to HEX for Streamlit/Plotly compatibility
+def rgba_to_hex(rgba):
+    return '#{:02x}{:02x}{:02x}'.format(int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255))
+
+# Update COLOR_PALETTE with continuous colormap
+COLOR_PALETTE["continuous"] = [rgba_to_hex(color) for color in plasma_cmap]
 
 # Function to load target subreddits from JSON file
 def load_target_subreddits():
@@ -93,13 +104,13 @@ def load_comments(engine, start_date, end_date, subreddits):
         return pd.DataFrame()
 
 # Function to calculate bins and frequencies with a fixed number of bins
-def calculate_bins_and_frequencies(data, score_column, num_bins=26):
+def calculate_bins_and_frequencies(data, score_column, num_bins=26, iqrm=1.5):
     # Calculate IQR and outlier thresholds
     q1 = np.percentile(data[score_column], 25)
     q3 = np.percentile(data[score_column], 75)
     iqr = q3 - q1
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    lower_bound = q1 - iqrm * iqr
+    upper_bound = q3 + iqrm * iqr
 
     # Separate main data and outliers
     main_data = data[(data[score_column] >= lower_bound) & (data[score_column] <= upper_bound)]
@@ -119,15 +130,18 @@ def calculate_bins_and_frequencies(data, score_column, num_bins=26):
 
     return bin_edges, main_data_counts, lower_outliers_count, upper_outliers_count
 
-# Function to plot histogram with wide bars that nearly touch
-def plot_histogram_with_outliers(data, score_column, title, num_bins=26):
+# Function to plot histogram with colorized bars based on percentage
+def plot_histogram_with_outliers(data, score_column, title, num_bins=26, iqrm=1.5):
     data = data.dropna(subset=[score_column])
     if data.empty:
         st.info(f"No data available to plot for {score_column}.")
         return
 
     # Calculate bins, frequencies, and outliers
-    bin_edges, main_data_counts, lower_outliers_count, upper_outliers_count = calculate_bins_and_frequencies(data, score_column, num_bins)
+    bin_edges, main_data_counts, lower_outliers_count, upper_outliers_count = calculate_bins_and_frequencies(data, score_column, num_bins, iqrm)
+
+    # Total number of data points
+    total_data_points = len(data)
 
     # Set a fixed, wide bar width to nearly fill the space
     visual_bin_width = 0.9 * (bin_edges[1] - bin_edges[0])  # A width that almost touches but leaves slight space
@@ -135,35 +149,59 @@ def plot_histogram_with_outliers(data, score_column, title, num_bins=26):
     # Create x-values for main bins as midpoints of each bin
     main_bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
+    # Calculate percentages for main bins
+    main_bin_percentages = main_data_counts / total_data_points
+
+    # Map percentages to colors
+    colormap = COLOR_PALETTE["continuous"]
+    num_colors = len(colormap)
+
+    # Map percentages to color indices
+    color_indices = (main_bin_percentages * (num_colors - 1)).astype(int)
+    # Ensure indices are within valid range
+    color_indices = np.clip(color_indices, 0, num_colors - 1)
+    # Get colors for each bin
+    bin_colors = [colormap[idx] for idx in color_indices]
+
     # Create the main data histogram as bars
     fig = go.Figure()
 
-    # Plot main data bins with the primary color
+    # Plot main data bins with colors
     fig.add_trace(go.Bar(
         x=main_bin_centers,
         y=main_data_counts,
         name="Main Data",
-        marker_color=COLOR_PALETTE["primary"],  # Use primary color from color_palette
+        marker_color=bin_colors,  # Use colors per bin
         width=visual_bin_width
     ))
 
-    # Plot lower outliers with outlier color
+    # Handle outliers
+    # For outliers, calculate percentage and map to color
     if lower_outliers_count > 0:
+        lower_outlier_percentage = lower_outliers_count / total_data_points
+        idx = int(lower_outlier_percentage * (num_colors - 1))
+        idx = np.clip(idx, 0, num_colors - 1)
+        lower_outlier_color = colormap[idx]
+
         fig.add_trace(go.Bar(
-            x=[main_bin_centers[0] - 1.5 * visual_bin_width],
+            x=[main_bin_centers[0] - iqrm * visual_bin_width],
             y=[lower_outliers_count],
-            name="Lower Outliers",
-            marker_color=COLOR_PALETTE["outlier"],  # Use outlier color
+            name=f"Lower Outliers {round(lower_outlier_percentage*100, 3)}%",
+            marker_color=lower_outlier_color,
             width=visual_bin_width
         ))
 
-    # Plot upper outliers with outlier color
     if upper_outliers_count > 0:
+        upper_outlier_percentage = upper_outliers_count / total_data_points
+        idx = int(upper_outlier_percentage * (num_colors - 1))
+        idx = np.clip(idx, 0, num_colors - 1)
+        upper_outlier_color = colormap[idx]
+
         fig.add_trace(go.Bar(
-            x=[main_bin_centers[-1] + 1.5 * visual_bin_width],
+            x=[main_bin_centers[-1] + iqrm * visual_bin_width],
             y=[upper_outliers_count],
-            name="Upper Outliers",
-            marker_color=COLOR_PALETTE["outlier"],
+            name=f"Upper Outliers {round(upper_outlier_percentage*100, 3)}%",
+            marker_color=upper_outlier_color,
             width=visual_bin_width
         ))
 
@@ -188,12 +226,15 @@ def main():
         st.stop()
     
     st.sidebar.header("Filters")
-    start_date = st.sidebar.date_input("Start Date", value=datetime(2024, 10, 1), min_value=datetime(2005, 6, 13), max_value=datetime.today())
-    end_date = st.sidebar.date_input("End Date", value=datetime(2024, 11, 1), min_value=start_date, max_value=datetime.today())
+    start_date = st.sidebar.date_input("Start Date", value=datetime(2024, 10, 20), min_value=datetime(2005, 6, 13), max_value=datetime.today())
+    end_date = st.sidebar.date_input("End Date", value=datetime(2024, 11, 13), min_value=start_date, max_value=datetime.today())
     selected_subreddits = st.sidebar.multiselect("Select Subreddits", options=subreddits, default=subreddits)
     
     # User-adjustable bin count with default to 26
     num_bins = st.sidebar.number_input("Number of Bins", min_value=5, max_value=100, value=26, step=1)
+
+    # User-defined IQR multiplier for highly skewed distributions
+    iqr_multiplier = st.sidebar.number_input("Variable IQR multiplier for outlier detection", min_value=float(1), max_value=float(15), value=float(1.5), step=float(0.25))
     
     engine = get_engine()
     if engine is None:
@@ -215,10 +256,10 @@ def main():
     
     st.subheader("Histogram of Scores Received")
     st.markdown(f"<h4 style='color: {COLOR_PALETTE['primary']}'>Post Scores</h4>", unsafe_allow_html=True)
-    plot_histogram_with_outliers(posts, 'score', "Distribution of Post Scores", num_bins)
+    plot_histogram_with_outliers(posts, 'score', "Distribution of Post Scores", num_bins, iqr_multiplier)
 
     st.markdown(f"<h4 style='color: {COLOR_PALETTE['primary']}'>Comment Scores</h4>", unsafe_allow_html=True)
-    plot_histogram_with_outliers(comments, 'score', "Distribution of Comment Scores", num_bins)
+    plot_histogram_with_outliers(comments, 'score', "Distribution of Comment Scores", num_bins, iqr_multiplier)
 
 if __name__ == "__main__":
     main()
