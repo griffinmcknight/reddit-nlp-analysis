@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-import datetime
+from datetime import datetime
 
 import pandas as pd
 import networkx as nx
@@ -12,7 +12,7 @@ from sqlalchemy import create_engine, text
 
 # Adjust `PYTHONPATH` to include `src` for local imports
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from config import db_config
+from config.db_config import db_params
 
 # Set up database connection
 def get_engine():
