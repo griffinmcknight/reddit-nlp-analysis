@@ -14,7 +14,7 @@ reddit = praw.Reddit(
 )
 
 # List of subreddits to scrape
-subreddits = ["conservative", "democrats", "news", "worldnews", "politics", "technology", "conspiracy", "inthenews"]
+subreddits = ["politics", "democrats", "news", "worldnews", "technology", "conspiracy", "inthenews", "conservative"]
 
 # PostgreSQL Database Configuration from db_config.py
 conn = psycopg2.connect(**db_config.db_params)
@@ -103,7 +103,7 @@ def process_post(post, subreddit_name):
     time.sleep(0.61)
 
 # Function to scrape posts and all comments from a subreddit
-def scrape_subreddit(subreddit_name, limit=100):  # Increased limit for efficiency
+def scrape_subreddit(subreddit_name, limit=1000):  # Increased limit for efficiency
     subreddit = reddit.subreddit(subreddit_name)
 
     # Scrape from `new` listing
@@ -112,7 +112,7 @@ def scrape_subreddit(subreddit_name, limit=100):  # Increased limit for efficien
         process_post(post, subreddit_name)
 
     # Scrape from `top` listing for specified timeframes
-    for time_filter in ["day", "week", "month"]:
+    for time_filter in ["day", "week", "month", "year"]:
         print(f"Scraping 'top' posts for {subreddit_name} - {time_filter}")
         for post in subreddit.top(time_filter=time_filter, limit=limit):
             process_post(post, subreddit_name)
@@ -127,7 +127,7 @@ def continuous_data_collection():
 
             for subreddit_name in subreddits:
                 print(f"Scraping subreddit: {subreddit_name}")
-                scrape_subreddit(subreddit_name, limit=100)  # Scraping 100 posts at a time for efficiency
+                scrape_subreddit(subreddit_name, limit=1000)  # Scraping 100 posts at a time for efficiency
 
     except Exception as e:
         print(f"An error occurred: {e}")

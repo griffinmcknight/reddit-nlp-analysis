@@ -1,7 +1,0 @@
-name: reddit_nlp_analysis
-channels:
-  - defaults
-dependencies:
-  - python=3.9
-  - jupyter
-prefix: /Users/griffin/miniconda3/envs/reddit_nlp_analysis
