@@ -1,21 +1,22 @@
+#!/usr/bin/env python3
+
 import praw
 import psycopg2
 from psycopg2.extras import execute_values
 import datetime
 import time
-import db_config
-import reddit_config  # Import credentials from reddit_config.py
+from config import db_config, reddit_config  # Import credentials from src/config/
 
-# Initialize Reddit using imported credentials
+# Initialize Reddit using credentials from reddit_config
 reddit = praw.Reddit(
     client_id=reddit_config.client_id,
     client_secret=reddit_config.client_secret,
     user_agent=reddit_config.user_agent
 )
 
-# Load flagged users from file
+# Load flagged users from file in src/data/
 def load_flagged_users():
-    with open("flagged_users.txt", "r") as file:
+    with open("src/data/flagged_users.txt", "r") as file:
         return [line.strip() for line in file if line.strip()]
 
 # Connect to PostgreSQL database
@@ -126,4 +127,3 @@ if __name__ == "__main__":
         cursor.close()
         conn.close()
         print("Database connection closed.")
-

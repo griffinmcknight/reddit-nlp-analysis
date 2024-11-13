@@ -1,12 +1,13 @@
+#!/usr/bin/env python3
+
 import praw
 import psycopg2
 from psycopg2.extras import execute_values
 import datetime
 import time
-import db_config
-import reddit_config  # Import credentials from reddit_config.py
+from config import db_config, reddit_config  # Import from src/config/
 
-# Initialize Reddit using imported credentials
+# Initialize Reddit using credentials from reddit_config
 reddit = praw.Reddit(
     client_id=reddit_config.client_id,
     client_secret=reddit_config.client_secret,
@@ -138,4 +139,3 @@ def continuous_data_collection():
 
 # Run continuous data collection
 continuous_data_collection()
-
